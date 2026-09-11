@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>おみくじ</title>
+<title>みおみくじ</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap');
 
@@ -329,7 +329,7 @@
 
   <div class="heading">
     <span class="en">FORTUNE&nbsp;DRAWING</span>
-    <h1>おみくじ</h1>
+    <h1>みおみくじ</h1>
     <p>心を静めて、そっと引いてください</p>
   </div>
 
@@ -538,6 +538,11 @@
 
   box.addEventListener('click', draw);
   againBtn.addEventListener('click', reset);
+
+  // ページを開いた瞬間に自動でおみくじを引く
+  window.addEventListener('load', function(){
+    setTimeout(draw, 400);
+  });
 
 })();
 </script>
