@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>おみくじ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap');
+
+  :root{
+    --paper: #F1E7D6;
+    --paper-dark: #E7D9C0;
+    --indigo: #1F2E4A;
+    --indigo-deep: #16213A;
+    --vermillion: #C63B31;
+    --vermillion-deep: #A32E26;
+    --gold: #BC9A3C;
+    --ink: #2B2620;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html, body{
+    margin:0;
+    padding:0;
+    background: var(--indigo-deep);
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    color: var(--ink);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body{
+    min-height: 100vh;
+    min-height: 100dvh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 24px 16px;
+    overflow-x:hidden;
+  }
+
+  /* subtle night-sky texture behind everything */
+  .sky{
+    position:fixed;
+    inset:0;
+    background:
+      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.35) 0, transparent 100%),
+      radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,0.25) 0, transparent 100%),
+      radial-gradient(1.5px 1.5px at 40% 80%, rgba(255,255,255,0.3) 0, transparent 100%),
+      radial-gradient(1px 1px at 85% 20%, rgba(255,255,255,0.3) 0, transparent 100%),
+      radial-gradient(1px 1px at 60% 15%, rgba(255,255,255,0.2) 0, transparent 100%),
+      radial-gradient(1.5px 1.5px at 10% 65%, rgba(255,255,255,0.25) 0, transparent 100%),
+      linear-gradient(180deg, var(--indigo-deep) 0%, var(--indigo) 100%);
+    z-index:0;
+  }
+
+  .stage{
+    position:relative;
+    z-index:1;
+    width:100%;
+    max-width: 400px;
+  }
+
+  /* ---------- torii header ---------- */
+  .torii-wrap{
+    display:flex;
+    justify-content:center;
+    margin-bottom: 4px;
+  }
+  .torii-wrap svg{ width: 92px; height: auto; }
+
+  .heading{
+    text-align:center;
+    color: var(--paper);
+    margin: 6px 0 26px;
+  }
+  .heading .en{
+    display:block;
+    font-size: 11px;
+    letter-spacing: 0.35em;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  .heading h1{
+    font-family:'Shippori Mincho', serif;
+    font-weight: 800;
+    font-size: 34px;
+    margin: 0;
+    letter-spacing: 0.12em;
+  }
+  .heading p{
+    font-family:'Shippori Mincho', serif;
+    font-size: 13px;
+    margin: 8px 0 0;
+    color: rgba(241,231,214,0.7);
+    letter-spacing: 0.05em;
+  }
+
+  /* ---------- draw box ---------- */
+  .box-area{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+
+  .kuji-box{
+    position:relative;
+    width: 180px;
+    height: 180px;
+    cursor:pointer;
+    border:none;
+    background:none;
+    padding:0;
+  }
+  .kuji-box:disabled{ cursor:default; }
+
+  .kuji-box svg{ width:100%; height:100%; display:block; }
+
+  .kuji-box.shaking svg{
+    animation: shake 0.5s ease-in-out infinite;
+  }
+  @keyframes shake{
+    0%,100%{ transform: rotate(0deg); }
+    20%{ transform: rotate(-4deg); }
+    40%{ transform: rotate(3deg); }
+    60%{ transform: rotate(-3deg); }
+    80%{ transform: rotate(4deg); }
+  }
+
+  .stick{
+    position:absolute;
+    left:50%;
+    top:8%;
+    width:10px;
+    height:70px;
+    background: linear-gradient(180deg, #FBF3E3, #E9DBC0);
+    border:1px solid rgba(43,38,32,0.25);
+    border-radius: 2px 2px 0 0;
+    transform-origin: bottom center;
+    transform: translateX(-50%) translateY(0) rotate(0deg);
+    opacity:0;
+    pointer-events:none;
+  }
+  .stick.rise{
+    animation: rise 0.9s cubic-bezier(.2,.8,.3,1) forwards;
+  }
+  @keyframes rise{
+    0%{ opacity:0; transform: translateX(-50%) translateY(0) rotate(0deg); }
+    15%{ opacity:1; }
+    100%{ opacity:1; transform: translateX(-50%) translateY(-110px) rotate(-14deg); }
+  }
+
+  .prompt{
+    margin-top: 22px;
+    font-family:'Shippori Mincho', serif;
+    color: var(--paper);
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    min-height: 20px;
+    text-align:center;
+  }
+
+  .hint{
+    margin-top: 6px;
+    font-size: 11px;
+    color: rgba(241,231,214,0.5);
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- result card ---------- */
+  .result{
+    width:100%;
+    margin-top: 8px;
+    opacity:0;
+    transform: translateY(16px);
+    pointer-events:none;
+  }
+  .result.show{
+    opacity:1;
+    transform:none;
+    pointer-events:auto;
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .slip{
+    background: var(--paper);
+    background-image:
+      repeating-linear-gradient(90deg, rgba(43,38,32,0.02) 0 1px, transparent 1px 3px);
+    border-radius: 6px;
+    padding: 30px 26px 26px;
+    position:relative;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.35);
+  }
+  .slip::before{
+    content:"";
+    position:absolute;
+    top:0; left:14px; right:14px;
+    height: 5px;
+    background: var(--vermillion);
+    border-radius: 0 0 4px 4px;
+  }
+
+  .rank-row{
+    display:flex;
+    align-items:baseline;
+    justify-content:center;
+    gap: 10px;
+    margin: 6px 0 4px;
+  }
+  .rank{
+    font-family:'Shippori Mincho', serif;
+    font-weight: 800;
+    font-size: 46px;
+    color: var(--vermillion-deep);
+    letter-spacing: 0.06em;
+    line-height:1;
+  }
+
+  .overall{
+    text-align:center;
+    font-family:'Shippori Mincho', serif;
+    font-size: 14.5px;
+    line-height: 1.9;
+    color: var(--ink);
+    margin: 14px 0 20px;
+    padding: 0 4px;
+  }
+
+  .divider{
+    height:1px;
+    background: rgba(43,38,32,0.15);
+    margin: 18px 0;
+  }
+
+  .categories{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 18px;
+  }
+  .cat{
+    display:flex;
+    flex-direction:column;
+    gap: 3px;
+  }
+  .cat .label{
+    font-size: 11px;
+    color: var(--vermillion-deep);
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+  .cat .text{
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+
+  .proverb{
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px dashed rgba(43,38,32,0.2);
+    text-align:center;
+    font-family:'Shippori Mincho', serif;
+    font-size: 13.5px;
+    line-height: 1.8;
+    color: var(--ink);
+  }
+
+  .lucky-row{
+    display:flex;
+    justify-content:center;
+    gap: 22px;
+    margin-top: 18px;
+    flex-wrap:wrap;
+  }
+  .lucky{
+    text-align:center;
+  }
+  .lucky .label{
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: rgba(43,38,32,0.55);
+    margin-bottom: 3px;
+  }
+  .lucky .value{
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--indigo);
+  }
+
+  .again{
+    display:block;
+    margin: 22px auto 0;
+    background: none;
+    border: 1px solid rgba(241,231,214,0.4);
+    color: var(--paper);
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    padding: 11px 22px;
+    border-radius: 999px;
+    cursor:pointer;
+  }
+  .again:active{ background: rgba(241,231,214,0.08); }
+
+  @media (prefers-reduced-motion: reduce){
+    .kuji-box.shaking svg{ animation: none; }
+    .stick.rise{ animation: none; opacity:1; transform: translateX(-50%) translateY(-110px) rotate(-14deg); }
+    .result{ transition:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sky"></div>
+
+<div class="stage">
+
+  <div class="torii-wrap">
+    <svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg">
+      <rect x="8" y="14" width="84" height="7" rx="1.5" fill="#C63B31"/>
+      <rect x="14" y="24" width="72" height="4.5" rx="1" fill="#A32E26"/>
+      <rect x="20" y="18" width="7" height="56" fill="#C63B31"/>
+      <rect x="73" y="18" width="7" height="56" fill="#C63B31"/>
+      <rect x="17" y="72" width="13" height="5" rx="1" fill="#8C241D"/>
+      <rect x="70" y="72" width="13" height="5" rx="1" fill="#8C241D"/>
+      <rect x="46" y="26" width="8" height="6" fill="#BC9A3C"/>
+    </svg>
+  </div>
+
+  <div class="heading">
+    <span class="en">FORTUNE&nbsp;DRAWING</span>
+    <h1>おみくじ</h1>
+    <p>心を静めて、そっと引いてください</p>
+  </div>
+
+  <div class="box-area">
+    <button class="kuji-box" id="kujiBox" aria-label="おみくじを引く">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="50" cy="88" rx="34" ry="4" fill="rgba(0,0,0,0.25)"/>
+        <rect x="20" y="34" width="60" height="52" rx="3" fill="#7A1F1A"/>
+        <rect x="20" y="34" width="60" height="52" rx="3" fill="none" stroke="#BC9A3C" stroke-width="1.5"/>
+        <rect x="20" y="34" width="60" height="10" fill="#5E1611"/>
+        <circle cx="50" cy="39" r="6.5" fill="#F1E7D6" stroke="#BC9A3C" stroke-width="1"/>
+        <text x="50" y="42.5" font-size="7" text-anchor="middle" fill="#7A1F1A" font-family="serif" font-weight="700">籤</text>
+        <rect x="30" y="52" width="40" height="26" rx="2" fill="none" stroke="#BC9A3C" stroke-width="1"/>
+        <line x1="30" y1="65" x2="70" y2="65" stroke="#BC9A3C" stroke-width="0.75"/>
+      </svg>
+      <div class="stick" id="stick"></div>
+    </button>
+
+    <div class="prompt" id="prompt">タップして、おみくじを引く</div>
+    <div class="hint" id="hint">一日一回、心を込めて</div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="slip" id="slip">
+      <!-- filled by JS -->
+    </div>
+    <button class="again" id="againBtn">もう一度引く</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+
+  var fortunes = [
+    { rank: "大吉", weight: 12, overall: [
+        "積み重ねてきたことが、ここへきて大きく実を結びます。焦らず流れに乗って進みましょう。",
+        "何をしても手応えを感じられる、勢いのある時。思い切った一歩が良い結果を呼びます。",
+        "運気は最高潮。周りの人への感謝を忘れなければ、幸運はさらに続いていきます。"
+      ]},
+    { rank: "中吉", weight: 15, overall: [
+        "静かに、しかし確かに物事が良い方向へ進んでいきます。地道な努力が支えになる時期です。",
+        "焦って動くより、じっくり構えることで運が味方します。今の環境を大切に。",
+        "小さな幸運が積み重なっていく暗示。周囲との協力が運気を後押しします。"
+      ]},
+    { rank: "小吉", weight: 15, overall: [
+        "波はあるものの、全体としては穏やかで安定した運気。無理をせず自然体でいきましょう。",
+        "急がず慌てず、目の前のことに丁寧に向き合うと良い流れが生まれます。",
+        "小さな喜びごとが訪れる予感。日々の暮らしの中にこそ幸運が隠れています。"
+      ]},
+    { rank: "吉", weight: 18, overall: [
+        "ごく普通の日々の中にこそ、幸運の種があります。当たり前を大切にしましょう。",
+        "大きな変化はなくとも、着実に前進できる運気。自分のペースを守って。",
+        "焦らずマイペースに進めば、じわじわと良い結果がついてきます。"
+      ]},
+    { rank: "末吉", weight: 15, overall: [
+        "今はまだ種をまく時期。すぐに結果が出なくても、後になって花開きます。",
+        "先行きが読みにくい時こそ、基本に立ち返ることが吉。慌てず備えましょう。",
+        "今の努力は少し先で報われます。今日を丁寧に過ごすことが未来への近道です。"
+      ]},
+    { rank: "凶", weight: 15, overall: [
+        "立ち止まって見直す時。無理に進めるより、一度距離を置くことで道が見えてきます。",
+        "小さなつまずきが起きやすい暗示。慎重に、確認を重ねて行動しましょう。",
+        "思うようにいかないことがあっても、それは次への準備期間。焦りは禁物です。"
+      ]},
+    { rank: "大凶", weight: 5, overall: [
+        "今日は大きな決断や勝負を避け、静かに過ごすのが賢明です。悪い流れは長く続きません。",
+        "見えない落とし穴に注意が必要な時。普段より一歩慎重に行動しましょう。",
+        "運気は低いですが、これは巡り合わせ。無理をせず、自分をいたわる日にしてください。"
+      ]}
+  ];
+
+  var categoryPools = {
+    "大吉": {
+      love: ["想いが通じ合い、関係が大きく前進する時。", "新しい出会いが訪れる、心華やぐ予感。", "素直な気持ちを伝えると、良い返事が得られそうです。"],
+      work: ["努力が正当に評価され、大きな成果につながります。", "任された仕事で実力を発揮できる好機。", "新しい挑戦がそのまま成功への道になります。"],
+      health: ["心身ともに絶好調。今のうちに少し体を動かしておくと吉。", "エネルギーに満ちた一日。無理のない範囲で活動的に。", "体調の不安があれば、この機に整えておきましょう。"],
+      money: ["思わぬ臨時収入や嬉しい出費のチャンスあり。", "計画していた買い物や投資に良いタイミング。", "金運は絶好調、ただし浮かれすぎに注意。"]
+    },
+    "中吉": {
+      love: ["穏やかで温かい時間が二人の距離を縮めます。", "誠実な態度が相手の心をつかむでしょう。", "片思いの相手との会話が増えそうです。"],
+      work: ["コツコツ続けてきたことが認められ始めます。", "周囲との連携がうまくいき、仕事がはかどります。", "小さな改善の積み重ねが評価につながります。"],
+      health: ["軽い運動や早めの休息が調子を整えてくれます。", "規則正しい生活が良いリズムを作ります。", "疲れをためずこまめにケアを。"],
+      money: ["堅実な使い方が安心につながる時期。", "無駄遣いを控えれば着実に貯まっていきます。", "家計の見直しに向いています。"]
+    },
+    "小吉": {
+      love: ["急がず自然な流れに任せると良い関係が築けます。", "些細な思いやりが相手に伝わりやすい時。", "自分の気持ちを整理する時間も大切に。"],
+      work: ["目の前のタスクを一つずつこなすことが力になります。", "無理のない範囲で新しいことに挑戦してみましょう。", "周囲のサポートに感謝を忘れずに。"],
+      health: ["軽やかな気分で過ごせる一日。", "睡眠を十分にとることで調子が整います。", "気分転換に散歩などがおすすめ。"],
+      money: ["収支のバランスは概ね良好。", "欲しいものより必要なものを優先すると吉。", "小さな節約が後で役立ちます。"]
+    },
+    "吉": {
+      love: ["日常の会話から関係が少しずつ深まります。", "焦らず今の関係を大切にしましょう。", "自然体でいることが魅力につながります。"],
+      work: ["いつも通りの丁寧な仕事ぶりが信頼を生みます。", "地道な作業がやがて大きな成果になります。", "周囲への報告・連絡・相談を意識すると吉。"],
+      health: ["大きな崩れはなく、安定した状態が続きます。", "食生活を少し見直すとより good。", "適度な休憩を取り入れましょう。"],
+      money: ["無理のない範囲でのやりくりがうまくいきます。", "予定外の出費には少し注意を。", "貯蓄にはコツコツ向きの時期。"]
+    },
+    "末吉": {
+      love: ["今すぐでなくても、時間をかけて関係は育っていきます。", "焦らず相手のペースに合わせてみましょう。", "自分磨きが後の出会いにつながります。"],
+      work: ["今の努力はすぐには実らなくても、後に評価されます。", "基礎固めに時間を使うと後々役立ちます。", "焦らずスキルを磨く時期です。"],
+      health: ["急な不調には早めの対処を心がけましょう。", "生活リズムを整えることが今後の安定につながります。", "無理を重ねず、休むときはしっかり休んで。"],
+      money: ["大きな動きより、様子見が賢明です。", "将来のための準備期間と捉えましょう。", "衝動的な出費は控えめに。"]
+    },
+    "凶": {
+      love: ["すれ違いが起きやすい時。言葉選びを丁寧に。", "無理に距離を縮めようとせず、時間を置くのも一つの手。", "誤解が生じたら早めに話し合いましょう。"],
+      work: ["確認不足によるミスに注意が必要です。", "大きな決断は先送りにするのが無難。", "一人で抱え込まず、周囲に相談を。"],
+      health: ["無理をすると体調を崩しやすい時期です。", "小さな不調のサインを見逃さないように。", "睡眠と休養を最優先に。"],
+      money: ["大きな買い物や投資は慎重に見極めて。", "衝動買いが後悔につながりやすい時。", "支出の管理を今一度見直しましょう。"]
+    },
+    "大凶": {
+      love: ["今は無理に動かず、静かに見守る時期です。", "感情的な言動は控え、冷静さを保ちましょう。", "一人の時間を大切にすると心が落ち着きます。"],
+      work: ["重要な判断は先延ばしにするのが賢明です。", "普段以上に確認を重ね、慎重に行動を。", "無理な挑戦より現状維持を優先しましょう。"],
+      health: ["体調管理を最優先に、無理は禁物です。", "小さな異変も軽視せず、早めのケアを。", "心身をしっかり休ませる日にしましょう。"],
+      money: ["大きな支出や契約は避けるのが無難です。", "衝動的な判断は避け、様子を見ましょう。", "今日は財布のひもを固く締めて。"]
+    }
+  };
+
+  var proverbs = [
+    "禍福は糾える縄の如し",
+    "石の上にも三年",
+    "雨降って地固まる",
+    "笑う門には福来る",
+    "急がば回れ",
+    "備えあれば憂いなし",
+    "一期一会",
+    "縁は異なもの味なもの",
+    "七転び八起き",
+    "初心忘るべからず",
+    "灯台下暗し",
+    "継続は力なり"
+  ];
+
+  var colors = ["朱色", "藍色", "山吹色", "白", "深緑", "紫", "金色", "浅葱色"];
+  var items = ["扇子", "手鏡", "御守り", "万年筆", "湯呑み", "小さな鈴", "手ぬぐい", "栞"];
+
+  function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+  function weightedRank(){
+    var total = fortunes.reduce(function(sum, f){ return sum + f.weight; }, 0);
+    var r = Math.random() * total;
+    for (var i = 0; i < fortunes.length; i++){
+      r -= fortunes[i].weight;
+      if (r <= 0) return fortunes[i];
+    }
+    return fortunes[fortunes.length - 1];
+  }
+
+  var box = document.getElementById('kujiBox');
+  var stick = document.getElementById('stick');
+  var prompt = document.getElementById('prompt');
+  var hint = document.getElementById('hint');
+  var resultEl = document.getElementById('result');
+  var slip = document.getElementById('slip');
+  var againBtn = document.getElementById('againBtn');
+
+  function renderSlip(f){
+    var cats = categoryPools[f.rank];
+    slip.innerHTML =
+      '<div class="rank-row"><div class="rank">' + f.rank + '</div></div>' +
+      '<div class="overall">' + pick(f.overall) + '</div>' +
+      '<div class="divider"></div>' +
+      '<div class="categories">' +
+        '<div class="cat"><div class="label">恋愛運</div><div class="text">' + pick(cats.love) + '</div></div>' +
+        '<div class="cat"><div class="label">仕事運</div><div class="text">' + pick(cats.work) + '</div></div>' +
+        '<div class="cat"><div class="label">健康運</div><div class="text">' + pick(cats.health) + '</div></div>' +
+        '<div class="cat"><div class="label">金運</div><div class="text">' + pick(cats.money) + '</div></div>' +
+      '</div>' +
+      '<div class="proverb">' + pick(proverbs) + '</div>' +
+      '<div class="lucky-row">' +
+        '<div class="lucky"><div class="label">LUCKY COLOR</div><div class="value">' + pick(colors) + '</div></div>' +
+        '<div class="lucky"><div class="label">LUCKY ITEM</div><div class="value">' + pick(items) + '</div></div>' +
+        '<div class="lucky"><div class="label">LUCKY NUMBER</div><div class="value">' + (Math.floor(Math.random()*9)+1) + '</div></div>' +
+      '</div>';
+  }
+
+  function draw(){
+    if (box.disabled) return;
+    box.disabled = true;
+    box.classList.add('shaking');
+    prompt.textContent = 'おみくじを引いています…';
+    hint.style.visibility = 'hidden';
+
+    setTimeout(function(){
+      box.classList.remove('shaking');
+      stick.classList.add('rise');
+
+      setTimeout(function(){
+        var f = weightedRank();
+        renderSlip(f);
+        prompt.textContent = '結果が出ました';
+        resultEl.classList.add('show');
+        resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 700);
+
+    }, 1100);
+  }
+
+  function reset(){
+    resultEl.classList.remove('show');
+    stick.classList.remove('rise');
+    box.disabled = false;
+    prompt.textContent = 'タップして、おみくじを引く';
+    hint.style.visibility = 'visible';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  box.addEventListener('click', draw);
+  againBtn.addEventListener('click', reset);
+
+})();
+</script>
+
+</body>
+</html>
